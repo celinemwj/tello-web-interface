@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -6,19 +7,41 @@ import {
   Button,
   Container,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   Toolbar,
   Typography,
 } from "@mui/material";
 
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
-import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
+import ChatRoundedIcon from "@mui/icons-material/ChatRounded";
+import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 
 import DroneScene from "../components/three/DroneScene";
 
 
 export default function WelcomePage() {
   const navigate = useNavigate();
+
+  const [menuAnchor, setMenuAnchor] = useState(null);
+
+  const isMenuOpen = Boolean(menuAnchor);
+
+  function openMenu(event) {
+    setMenuAnchor(event.currentTarget);
+  }
+
+  function closeMenu() {
+    setMenuAnchor(null);
+  }
+
+  function goToPage(path) {
+    closeMenu();
+    navigate(path);
+  }
 
   return (
     <Box
@@ -121,6 +144,7 @@ export default function WelcomePage() {
             >
               <IconButton
                 aria-label="Open navigation menu"
+                onClick={openMenu}
                 sx={{
                   width: 44,
                   height: 44,
@@ -129,6 +153,8 @@ export default function WelcomePage() {
                   borderColor: "divider",
                   bgcolor: "rgba(255,255,255,0.72)",
                   backdropFilter: "blur(12px)",
+                  boxShadow:
+                    "0 14px 34px rgba(31,34,48,0.08)",
 
                   "&:hover": {
                     bgcolor: "background.paper",
@@ -138,18 +164,72 @@ export default function WelcomePage() {
                 <MenuRoundedIcon />
               </IconButton>
 
-              <Box
-                component="img"
-                src="/assets/tello-ai-logo.png"
-                alt="Tello AI logo"
-                sx={{
-                  width: 54,
-                  height: 54,
-                  objectFit: "contain",
-                  flexShrink: 0,
+              <Menu
+                anchorEl={menuAnchor}
+                open={isMenuOpen}
+                onClose={closeMenu}
+                PaperProps={{
+                  sx: {
+                    mt: 1.2,
+                    minWidth: 230,
+                    borderRadius: 3,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "rgba(255,255,255,0.92)",
+                    backdropFilter: "blur(16px)",
+                    boxShadow:
+                      "0 24px 70px rgba(31,34,48,0.14)",
+                    p: 0.8,
+                  },
                 }}
-              />
-              
+              >
+                <MenuItem
+                  onClick={() => goToPage("/command")}
+                  sx={{
+                    py: 1.4,
+                    borderRadius: 2,
+                    mb: 0.5,
+                  }}
+                >
+                  <ListItemIcon>
+                    <ChatRoundedIcon fontSize="small" />
+                  </ListItemIcon>
+
+                  <ListItemText
+                    primary="AI command"
+                    secondary="Send drone missions"
+                    primaryTypographyProps={{
+                      fontWeight: 750,
+                    }}
+                    secondaryTypographyProps={{
+                      fontSize: "0.78rem",
+                    }}
+                  />
+                </MenuItem>
+
+                <MenuItem
+                  onClick={() => goToPage("/monitoring")}
+                  sx={{
+                    py: 1.4,
+                    borderRadius: 2,
+                  }}
+                >
+                  <ListItemIcon>
+                    <DashboardRoundedIcon fontSize="small" />
+                  </ListItemIcon>
+
+                  <ListItemText
+                    primary="Monitoring"
+                    secondary="View drone state"
+                    primaryTypographyProps={{
+                      fontWeight: 750,
+                    }}
+                    secondaryTypographyProps={{
+                      fontSize: "0.78rem",
+                    }}
+                  />
+                </MenuItem>
+              </Menu>
             </Stack>
 
             {/* Right side */}

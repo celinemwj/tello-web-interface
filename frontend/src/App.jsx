@@ -5,37 +5,36 @@ import {
   Routes,
 } from "react-router-dom";
 
-import WelcomePage from "./pages/WelcomePage";
+import WelcomePage from "./pages/WelcomePage.jsx";
+import CommandPage from "./pages/CommandPage.jsx";
+import MonitoringPage from "./pages/MonitoringPage.jsx";
 
-
-function TemporaryPage({ title }) {
-  return (
-    <div style={{ padding: 40 }}>
-      <h1>{title}</h1>
-      <p>This page will be implemented later.</p>
-    </div>
-  );
-}
+import { PipelineProvider } from "./context/PipelineContext.jsx";
 
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<WelcomePage />} />
+    <PipelineProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<WelcomePage />} />
 
-        <Route
-          path="/command"
-          element={<TemporaryPage title="AI Command" />}
-        />
+          <Route
+            path="/command"
+            element={<CommandPage />}
+          />
 
-        <Route
-          path="/monitoring"
-          element={<TemporaryPage title="Monitoring" />}
-        />
+          <Route
+            path="/monitoring"
+            element={<MonitoringPage />}
+          />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route
+            path="*"
+            element={<Navigate to="/" replace />}
+          />
+        </Routes>
+      </BrowserRouter>
+    </PipelineProvider>
   );
 }

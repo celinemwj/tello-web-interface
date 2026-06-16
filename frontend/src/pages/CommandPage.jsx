@@ -19,7 +19,6 @@ import CodeRoundedIcon from "@mui/icons-material/CodeRounded";
 import CheckCircleOutlineRoundedIcon from "@mui/icons-material/CheckCircleOutlineRounded";
 import TerminalRoundedIcon from "@mui/icons-material/TerminalRounded";
 import PsychologyRoundedIcon from "@mui/icons-material/PsychologyRounded";
-import RouteRoundedIcon from "@mui/icons-material/RouteRounded";
 
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { executeCommand } from "../services/telloApi";
@@ -56,26 +55,23 @@ function ChatMessage({ role, children }) {
         elevation={0}
         sx={{
           maxWidth: {
-            xs: "86%",
-            md: "78%",
+            xs: "82%",
+            md: "75%",
           },
           px: 2,
           py: 1.4,
-          borderRadius: isUser
-            ? "22px 22px 6px 22px"
-            : "22px 22px 22px 6px",
+          borderRadius: 3,
           bgcolor: isUser
             ? "primary.main"
-            : "rgba(255,255,255,0.76)",
+            : "background.paper",
           color: isUser
             ? "primary.contrastText"
             : "text.primary",
           border: isUser ? "none" : "1px solid",
           borderColor: "divider",
-          backdropFilter: "blur(14px)",
           boxShadow: isUser
-            ? "0 12px 28px rgba(89,103,138,0.22)"
-            : "0 12px 30px rgba(31,34,48,0.06)",
+            ? "0 8px 20px rgba(89,103,138,0.18)"
+            : "none",
         }}
       >
         {children}
@@ -89,7 +85,7 @@ function ChatMessage({ role, children }) {
             borderRadius: "50%",
             display: "grid",
             placeItems: "center",
-            bgcolor: "secondary.light",
+            bgcolor: "secondary.main",
             color: "primary.dark",
             flexShrink: 0,
           }}
@@ -102,17 +98,19 @@ function ChatMessage({ role, children }) {
 }
 
 
-function ResultSection({ icon, title, subtitle, children }) {
+function ResultSection({
+  icon,
+  title,
+  subtitle,
+  children,
+}) {
   return (
     <Paper
       variant="outlined"
       sx={{
-        p: 2.4,
-        borderRadius: 4,
-        bgcolor: "rgba(255,255,255,0.72)",
-        backdropFilter: "blur(16px)",
-        borderColor: "rgba(217,220,229,0.8)",
-        boxShadow: "0 18px 50px rgba(31,34,48,0.07)",
+        p: 2.5,
+        borderRadius: 3,
+        bgcolor: "rgba(255,255,255,0.82)",
       }}
     >
       <Stack
@@ -125,9 +123,9 @@ function ResultSection({ icon, title, subtitle, children }) {
       >
         <Box
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2.3,
+            width: 38,
+            height: 38,
+            borderRadius: 2,
             display: "grid",
             placeItems: "center",
             bgcolor: "secondary.light",
@@ -200,8 +198,9 @@ export default function CommandPage() {
 
       const assistantMessage =
         apiResult.llm_output?.explanation ||
-        apiResult.error ||
-        "The command was processed.";
+        (apiResult.success
+          ? "The command was interpreted and processed successfully."
+          : "The command could not be executed.");
 
       setMessages((currentMessages) => [
         ...currentMessages,
@@ -217,7 +216,8 @@ export default function CommandPage() {
         ...currentMessages,
         {
           role: "assistant",
-          content: "The backend could not process the command.",
+          content:
+            "The backend could not process the command.",
         },
       ]);
     } finally {
@@ -237,11 +237,10 @@ export default function CommandPage() {
   const headerStatus = (
     <Chip
       label="Mock mode"
+      color="secondary"
       variant="outlined"
       sx={{
-        fontWeight: 750,
-        bgcolor: "rgba(255,255,255,0.7)",
-        backdropFilter: "blur(10px)",
+        fontWeight: 700,
       }}
     />
   );
@@ -257,15 +256,9 @@ export default function CommandPage() {
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            md: "minmax(0, 1.35fr) minmax(340px, 0.75fr)",
-            lg: "minmax(0, 1.35fr) minmax(390px, 0.75fr)",
-            xl: "minmax(0, 1.35fr) minmax(430px, 0.75fr)",
+            xl: "minmax(0, 1.2fr) minmax(380px, 0.8fr)",
           },
-          gap: {
-            xs: 2.5,
-            md: 3,
-          },
-          alignItems: "start",
+          gap: 3,
         }}
       >
         {/* Chat workspace */}
@@ -273,32 +266,20 @@ export default function CommandPage() {
           variant="outlined"
           sx={{
             minHeight: {
-              xs: 600,
-              md: "calc(100vh - 190px)",
-            },
-            maxHeight: {
-              md: "calc(100vh - 150px)",
+              xs: 640,
+              xl: "calc(100vh - 150px)",
             },
             display: "flex",
             flexDirection: "column",
-            borderRadius: 6,
+            borderRadius: 4,
             overflow: "hidden",
-            bgcolor: "rgba(255,255,255,0.64)",
-            backdropFilter: "blur(18px)",
-            borderColor: "rgba(217,220,229,0.8)",
-            boxShadow: "0 28px 80px rgba(31,34,48,0.11)",
+            bgcolor: "rgba(255,255,255,0.78)",
           }}
         >
           <Box
             sx={{
-              px: {
-                xs: 2.2,
-                md: 3,
-              },
-              py: {
-                xs: 2,
-                md: 2.5,
-              },
+              px: 3,
+              py: 2.5,
             }}
           >
             <Stack
@@ -310,14 +291,13 @@ export default function CommandPage() {
             >
               <Box
                 sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 3,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2.5,
                   display: "grid",
                   placeItems: "center",
                   bgcolor: "primary.main",
                   color: "primary.contrastText",
-                  boxShadow: "0 16px 34px rgba(89,103,138,0.24)",
                 }}
               >
                 <PsychologyRoundedIcon />
@@ -360,9 +340,9 @@ export default function CommandPage() {
             {messages.length === 0 && (
               <ChatMessage role="assistant">
                 <Typography>
-                  Enter a drone command. I will interpret the instruction,
-                  validate the sequence, generate the DJITelloPy code, and
-                  simulate the execution.
+                  Enter a drone command. I will interpret the
+                  instruction, validate the sequence, generate the
+                  DJITelloPy code, and simulate the execution.
                 </Typography>
               </ChatMessage>
             )}
@@ -394,7 +374,7 @@ export default function CommandPage() {
                   <CircularProgress size={18} />
 
                   <Typography>
-                    Translating and validating the mission…
+                    Interpreting the command…
                   </Typography>
                 </Stack>
               </ChatMessage>
@@ -420,16 +400,13 @@ export default function CommandPage() {
             component="form"
             onSubmit={handleSubmit}
             sx={{
-              p: {
-                xs: 1.8,
-                md: 2,
-              },
-              bgcolor: "rgba(255,255,255,0.46)",
+              p: 2,
+              bgcolor: "background.paper",
             }}
           >
             <Stack
               direction="row"
-              spacing={1.4}
+              spacing={1.5}
               sx={{
                 alignItems: "flex-end",
               }}
@@ -437,19 +414,13 @@ export default function CommandPage() {
               <TextField
                 fullWidth
                 multiline
-                maxRows={4}
+                maxRows={5}
                 value={command}
                 onChange={(event) =>
                   setCommand(event.target.value)
                 }
-                placeholder="Write a command for the drone..."
+                placeholder="Write a command for the drone…"
                 disabled={isLoading}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 3,
-                    bgcolor: "rgba(255,255,255,0.82)",
-                  },
-                }}
               />
 
               <Button
@@ -457,12 +428,11 @@ export default function CommandPage() {
                 variant="contained"
                 disabled={isLoading || !command.trim()}
                 sx={{
-                  minWidth: 56,
-                  width: 56,
-                  height: 56,
+                  minWidth: 54,
+                  width: 54,
+                  height: 54,
                   px: 0,
-                  borderRadius: 3,
-                  boxShadow: "0 16px 34px rgba(89,103,138,0.22)",
+                  borderRadius: 2.5,
                 }}
               >
                 <SendRoundedIcon />
@@ -472,61 +442,42 @@ export default function CommandPage() {
         </Paper>
 
         {/* Translation workspace */}
-        <Stack
-          spacing={2.3}
-          sx={{
-            minWidth: 0,
-          }}
-        >
-          <Stack
-            direction="row"
-            spacing={1.2}
-            sx={{
-              alignItems: "center",
-            }}
-          >
-            <RouteRoundedIcon color="primary" />
+        <Stack spacing={2.5}>
+          <Box>
+            <Typography
+              variant="h5"
+              fontWeight={900}
+            >
+              Translation process
+            </Typography>
 
-            <Box>
-              <Typography
-                variant="h5"
-                fontWeight={900}
-              >
-                Translation process
-              </Typography>
-
-              <Typography
-                variant="body2"
-                color="text.secondary"
-              >
-                Natural language → structured actions → validation → generated code.
-              </Typography>
-            </Box>
-          </Stack>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              mt={0.5}
+            >
+              Natural language → structured actions →
+              validation → generated code.
+            </Typography>
+          </Box>
 
           {!result && (
             <Paper
               variant="outlined"
               sx={{
-                minHeight: {
-                  xs: 260,
-                  md: 360,
-                },
+                minHeight: 300,
                 display: "grid",
                 placeItems: "center",
                 textAlign: "center",
-                borderRadius: 6,
+                borderRadius: 4,
                 p: 4,
-                bgcolor: "rgba(255,255,255,0.58)",
-                backdropFilter: "blur(18px)",
-                borderColor: "rgba(217,220,229,0.8)",
-                boxShadow: "0 26px 70px rgba(31,34,48,0.08)",
+                bgcolor: "rgba(255,255,255,0.62)",
               }}
             >
               <Box>
                 <CodeRoundedIcon
                   sx={{
-                    fontSize: 58,
+                    fontSize: 56,
                     color: "primary.main",
                     mb: 1.5,
                   }}
@@ -560,38 +511,42 @@ export default function CommandPage() {
               >
                 {interpretedCommands.length > 0 ? (
                   <Stack spacing={1}>
-                    {interpretedCommands.map((item, index) => (
-                      <Paper
-                        key={`${item.action}-${index}`}
-                        variant="outlined"
-                        sx={{
-                          px: 1.5,
-                          py: 1.1,
-                          borderRadius: 2.5,
-                          bgcolor: "rgba(255,255,255,0.74)",
-                        }}
-                      >
-                        <Stack
-                          direction="row"
-                          spacing={1}
+                    {interpretedCommands.map(
+                      (item, index) => (
+                        <Paper
+                          key={`${item.action}-${index}`}
+                          variant="outlined"
                           sx={{
-                            justifyContent: "space-between",
-                            alignItems: "center",
+                            px: 1.6,
+                            py: 1.2,
+                            borderRadius: 2,
                           }}
                         >
-                          <Typography fontWeight={800}>
-                            {index + 1}. {item.action}
-                          </Typography>
+                          <Stack
+                            direction="row"
+                            spacing={2}
+                            sx={{
+                              justifyContent:
+                                "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Typography fontWeight={750}>
+                              {index + 1}. {item.action}
+                            </Typography>
 
-                          {item.value !== undefined && (
-                            <Chip
-                              size="small"
-                              label={`${item.value} ${item.unit ?? ""}`}
-                            />
-                          )}
-                        </Stack>
-                      </Paper>
-                    ))}
+                            {item.value !== undefined && (
+                              <Chip
+                                size="small"
+                                label={`${item.value} ${
+                                  item.unit ?? ""
+                                }`}
+                              />
+                            )}
+                          </Stack>
+                        </Paper>
+                      )
+                    )}
                   </Stack>
                 ) : (
                   <Typography color="text.secondary">
@@ -601,7 +556,9 @@ export default function CommandPage() {
               </ResultSection>
 
               <ResultSection
-                icon={<CheckCircleOutlineRoundedIcon />}
+                icon={
+                  <CheckCircleOutlineRoundedIcon />
+                }
                 title="Validation"
                 subtitle="Safety, range and sequence verification"
               >
@@ -627,14 +584,16 @@ export default function CommandPage() {
 
                 {validationErrors.length > 0 && (
                   <Stack spacing={1}>
-                    {validationErrors.map((item, index) => (
-                      <Alert
-                        key={index}
-                        severity="error"
-                      >
-                        {item}
-                      </Alert>
-                    ))}
+                    {validationErrors.map(
+                      (item, index) => (
+                        <Alert
+                          key={index}
+                          severity="error"
+                        >
+                          {item}
+                        </Alert>
+                      )
+                    )}
                   </Stack>
                 )}
               </ResultSection>
@@ -651,7 +610,7 @@ export default function CommandPage() {
                       m: 0,
                       p: 2,
                       overflowX: "auto",
-                      borderRadius: 3,
+                      borderRadius: 2.5,
                       bgcolor: "#1F2230",
                       color: "#F4F5F8",
                       fontSize: "0.84rem",
@@ -675,17 +634,19 @@ export default function CommandPage() {
               >
                 {executionLogs.length > 0 ? (
                   <Stack spacing={0.8}>
-                    {executionLogs.map((log, index) => (
-                      <Typography
-                        key={`${log}-${index}`}
-                        variant="body2"
-                        sx={{
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {log}
-                      </Typography>
-                    ))}
+                    {executionLogs.map(
+                      (log, index) => (
+                        <Typography
+                          key={`${log}-${index}`}
+                          variant="body2"
+                          sx={{
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          {log}
+                        </Typography>
+                      )
+                    )}
                   </Stack>
                 ) : (
                   <Typography color="text.secondary">
