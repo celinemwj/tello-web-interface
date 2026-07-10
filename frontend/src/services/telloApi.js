@@ -14,7 +14,7 @@ export async function executeCommand(command) {
     },
     body: JSON.stringify({
       command: cleanedCommand,
-      execution_mode: "mock",
+      execution_mode: "real_first_flight",
     }),
   });
 

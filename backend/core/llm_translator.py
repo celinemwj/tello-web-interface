@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
@@ -7,11 +8,17 @@ from google import genai
 from google.genai import types
 
 
-load_dotenv()
+# ------------------------------------------------------------
+# Robust .env loading
+# ------------------------------------------------------------
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_PATH = PROJECT_ROOT / ".env"
+
+load_dotenv(dotenv_path=ENV_PATH)
 
 
-MODEL_NAME = "gemini-2.5-flash-lite"
-
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 ALLOWED_LANGUAGES = {"en", "unknown"}
 
@@ -126,7 +133,6 @@ Sensor queries:
 - query_acceleration
 - query_wifi_snr
 
-
 English vocabulary and synonym mapping:
 
 Takeoff:
@@ -143,7 +149,6 @@ Move forward:
 
 Move backward:
 - "move back", "go back", "fly back", "move backward", "reverse", "go backwards"
-- Common typos: "bak", "backword", "backwards"
 
 Move left:
 - "move left", "go left", "fly left", "strafe left", "slide left"
@@ -224,7 +229,6 @@ Emergency:
   "emergency", "emergency stop", "stop motors immediately", "cut motors"
 - Do not map normal words like "stop", "pause", or "wait" to emergency.
 
-
 Core interpretation rules:
 1. Return only valid JSON.
 2. Do not include Markdown.
@@ -255,7 +259,6 @@ Core interpretation rules:
 27. Do not use keepalive unless the user explicitly asks to wait, hover, stay active, or keep the drone alive.
 28. The only allowed language values are "en" or "unknown".
 
-
 Value rules:
 1. Movement values must be between 20 and 500 cm.
 2. Speed values for set_speed and go_xyz_speed must be between 10 and 100 cm/s.
@@ -264,7 +267,6 @@ Value rules:
 5. If the user gives a value outside these ranges, still return the interpreted value. The validator will reject unsafe or invalid values later.
 6. If the user gives no movement distance, use 50 cm.
 7. If the user gives no rotation angle, use 90 degrees.
-
 
 Output format:
 Return exactly this JSON structure:
@@ -283,193 +285,20 @@ Command object examples:
 - {"action": "move_forward", "value": 100, "unit": "cm"}
 - {"action": "rotate_clockwise", "value": 90, "unit": "deg"}
 - {"action": "set_speed", "value": 60, "unit": "cm/s"}
-- {"action": "go_xyz_speed", "x": 100, "y": 50, "z": 80, "speed": 60, "unit": "cm"}
-- {"action": "curve_xyz_speed", "x1": 50, "y1": 50, "z1": 0, "x2": 100, "y2": 0, "z2": 50, "speed": 30, "unit": "cm"}
 - {"action": "query_battery"}
-
-
-Examples:
-
-Input: Take off and land.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "takeoff"},
-    {"action": "land"}
-  ],
-  "explanation": "The drone takes off and then lands."
-}
-
-Input: Take of and go foward.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "takeoff"},
-    {"action": "move_forward", "value": 50, "unit": "cm"}
-  ],
-  "explanation": "The drone takes off and moves forward 50 cm."
-}
-
-Input: Launch the drone, fly straight one meter, then touch down.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "takeoff"},
-    {"action": "move_forward", "value": 100, "unit": "cm"},
-    {"action": "land"}
-  ],
-  "explanation": "The drone takes off, moves forward 100 cm, then lands."
-}
-
-Input: Go right then turn right.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "move_right", "value": 50, "unit": "cm"},
-    {"action": "rotate_clockwise", "value": 90, "unit": "deg"}
-  ],
-  "explanation": "The drone moves right 50 cm and then rotates clockwise by 90 degrees."
-}
-
-Input: Rise 50 cm then spin left.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "move_up", "value": 50, "unit": "cm"},
-    {"action": "rotate_counter_clockwise", "value": 90, "unit": "deg"}
-  ],
-  "explanation": "The drone moves up 50 cm and then rotates counter-clockwise by 90 degrees."
-}
-
-Input: Start camera and check batery.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "streamon"},
-    {"action": "query_battery"}
-  ],
-  "explanation": "The drone starts the video stream and queries the battery level."
-}
-
-Input: Check temperature and wifi signal.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "query_temperature"},
-    {"action": "query_wifi_snr"}
-  ],
-  "explanation": "The drone queries its temperature and Wi-Fi signal strength."
-}
-
-Input: Turn right 720 degrees.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "rotate_clockwise", "value": 720, "unit": "deg"}
-  ],
-  "explanation": "The drone rotates clockwise by 720 degrees."
-}
-
-Input: Set speed to 60, take off, flip forward, then land.
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "set_speed", "value": 60, "unit": "cm/s"},
-    {"action": "takeoff"},
-    {"action": "flip_forward"},
-    {"action": "land"}
-  ],
-  "explanation": "The drone sets its speed to 60 cm/s, takes off, performs a forward flip, then lands."
-}
-
-Input: Emergency stop!
-Output:
-{
-  "status": "accepted",
-  "language": "en",
-  "commands": [
-    {"action": "emergency"}
-  ],
-  "explanation": "The drone cuts its motors immediately."
-}
-
-Input: Stop.
-Output:
-{
-  "status": "rejected",
-  "language": "en",
-  "commands": [],
-  "explanation": "The command is ambiguous.",
-  "rejection_reason": "The word stop can mean land, pause, or emergency stop. Please use a clearer command."
-}
-
-Input: Right.
-Output:
-{
-  "status": "rejected",
-  "language": "en",
-  "commands": [],
-  "explanation": "The command is ambiguous.",
-  "rejection_reason": "The word right can mean move right or turn right. Please use a clearer command."
-}
-
-Input: Fly around.
-Output:
-{
-  "status": "rejected",
-  "language": "en",
-  "commands": [],
-  "explanation": "The command is too vague.",
-  "rejection_reason": "The instruction does not specify a supported drone action."
-}
-
-Input: Fly very far and follow someone in the street.
-Output:
-{
-  "status": "rejected",
-  "language": "en",
-  "commands": [],
-  "explanation": "The command is unsafe or unsupported.",
-  "rejection_reason": "Following a person and flying without distance limits are not supported."
-}
-
-Input: Décolle et avance.
-Output:
-{
-  "status": "rejected",
-  "language": "unknown",
-  "commands": [],
-  "explanation": "Only English commands are supported in this version.",
-  "rejection_reason": "The input language is not supported."
-}
 """
 
 
-def get_gemini_client():
-    """
-    Creates the Gemini client only when needed.
+def debug_environment() -> None:
+    api_key = os.getenv("GEMINI_API_KEY")
 
-    This avoids crashing the whole FastAPI backend at import time
-    if the API key is missing.
-    """
+    print("DEBUG ENV_PATH:", ENV_PATH)
+    print("DEBUG ENV_EXISTS:", ENV_PATH.exists())
+    print("DEBUG GEMINI_API_KEY FOUND:", bool(api_key))
+    print("DEBUG GEMINI_MODEL:", MODEL_NAME)
+
+
+def get_gemini_client():
     api_key = os.getenv("GEMINI_API_KEY")
 
     if not api_key:
@@ -479,9 +308,6 @@ def get_gemini_client():
 
 
 def normalize_language(language: Any) -> str:
-    """
-    Forces the language field to be either 'en' or 'unknown'.
-    """
     if not isinstance(language, str):
         return "unknown"
 
@@ -494,9 +320,6 @@ def normalize_language(language: Any) -> str:
 
 
 def normalize_status(status: Any) -> str:
-    """
-    Forces the status field to be either 'accepted' or 'rejected'.
-    """
     if not isinstance(status, str):
         return "rejected"
 
@@ -514,9 +337,6 @@ def rejected_response(
     rejection_reason: Optional[str] = None,
     raw_output: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Builds a normalized rejected response.
-    """
     response = {
         "status": "rejected",
         "language": normalize_language(language),
@@ -534,9 +354,6 @@ def rejected_response(
 
 
 def clean_json_response(text: Optional[str]) -> str:
-    """
-    Removes possible Markdown fences around JSON.
-    """
     if text is None:
         return ""
 
@@ -555,9 +372,6 @@ def clean_json_response(text: Optional[str]) -> str:
 
 
 def build_prompt(user_command: str) -> str:
-    """
-    Builds the final prompt sent to Gemini.
-    """
     return f"""
 {SYSTEM_PROMPT}
 
@@ -569,9 +383,6 @@ Output:
 
 
 def keep_allowed_command_fields(command: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Keeps only useful fields for the validator and code generator.
-    """
     allowed_fields = {
         "action",
         "value",
@@ -596,9 +407,6 @@ def keep_allowed_command_fields(command: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def normalize_commands(commands: Any) -> List[Dict[str, Any]]:
-    """
-    Removes invalid commands and unknown actions.
-    """
     if not isinstance(commands, list):
         return []
 
@@ -627,9 +435,6 @@ def normalize_commands(commands: Any) -> List[Dict[str, Any]]:
 
 
 def normalize_model_response(response: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Normalizes Gemini output into a predictable structure.
-    """
     status = normalize_status(response.get("status"))
     language = normalize_language(response.get("language"))
     commands = normalize_commands(response.get("commands"))
@@ -674,9 +479,6 @@ def normalize_model_response(response: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def translate_command(user_command: str) -> Dict[str, Any]:
-    """
-    Translates a natural-language English command into structured Tello actions.
-    """
     if not isinstance(user_command, str) or not user_command.strip():
         return rejected_response(
             explanation="Empty command.",
@@ -686,9 +488,14 @@ def translate_command(user_command: str) -> Dict[str, Any]:
     client = get_gemini_client()
 
     if client is None:
+        debug_environment()
+
         return rejected_response(
             explanation="LLM API key is missing.",
-            rejection_reason="GEMINI_API_KEY was not found in the environment.",
+            rejection_reason=(
+                "GEMINI_API_KEY was not found. "
+                f"Expected .env file here: {ENV_PATH}"
+            ),
         )
 
     prompt = build_prompt(user_command.strip())
@@ -732,15 +539,18 @@ def translate_command(user_command: str) -> Dict[str, Any]:
         )
 
     except Exception as error:
+        print("GEMINI REAL ERROR:", repr(error))
+
         return rejected_response(
-            explanation="LLM API error.",
+            explanation=f"LLM API error: {error}",
             rejection_reason=str(error),
         )
 
 
 if __name__ == "__main__":
-    user_input = input("Enter a drone command: ")
+    debug_environment()
 
+    user_input = input("Enter a drone command: ")
     result = translate_command(user_input)
 
     print(json.dumps(result, indent=2, ensure_ascii=False))

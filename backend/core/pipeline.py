@@ -1,216 +1,350 @@
 import json
-from typing import Any, Dict
+from typing import Dict, Any, List
 
 from backend.core.llm_translator import translate_command
 from backend.core.command_validator import validate_and_report
-from backend.core.code_generator import (
-    generate_python_code,
-    execute_commands_with_tello,
-)
+from backend.core.code_generator import generate_python_code, execute_commands_with_tello
 from backend.core.mock_tello import execute_commands as execute_mock_commands
 
 
-SUPPORTED_EXECUTION_MODES = {"mock", "real"}
+PASSIVE_REAL_ACTIONS = {
+    "battery?",
+    "speed?",
+    "height?",
+    "temperature?",
+    "time?",
+    "tof?",
+    "wifi?",
+    "barometer?",
+
+    "query_battery",
+    "query_speed",
+    "query_height",
+    "query_temperature",
+    "query_flight_time",
+    "query_distance_tof",
+    "query_wifi_snr",
+    "query_barometer",
+    "query_attitude",
+    "query_acceleration",
+}
+
+
+FIRST_FLIGHT_ACTIONS = {
+    "takeoff",
+    "land",
+
+    "battery?",
+    "query_battery",
+
+    "move_up",
+    "move_down",
+    "move_forward",
+    "move_back",
+    "move_left",
+    "move_right",
+
+    "rotate_clockwise",
+    "rotate_counter_clockwise",
+}
+
+
+MAX_FIRST_FLIGHT_DISTANCE_CM = 30
+MAX_FIRST_FLIGHT_ROTATION_DEG = 45
 
 
 def build_error_response(
-    *,
-    step: str,
-    user_command: str,
     execution_mode: str,
-    message: str,
+    error: str,
     llm_output: Dict[str, Any] | None = None,
-    validation: Dict[str, Any] | None = None,
+    validation_result: Dict[str, Any] | None = None,
     generated_code: str | None = None,
-    execution: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
-    """
-    Builds a consistent error response for the frontend.
-    """
     return {
         "success": False,
-        "step": step,
         "execution_mode": execution_mode,
-        "user_command": user_command,
         "llm_output": llm_output,
-        "validation": validation,
+        "validation": validation_result,
         "generated_code": generated_code,
-        "execution": execution,
-        "error": message,
+        "execution": None,
+        "error": error,
     }
 
 
 def normalize_execution_mode(execution_mode: str) -> str:
-    """
-    Normalizes the execution mode.
-    Default mode is mock.
-    """
-    if not isinstance(execution_mode, str):
+    if not execution_mode:
         return "mock"
 
-    normalized_mode = execution_mode.strip().lower()
+    return execution_mode.strip().lower()
 
-    if normalized_mode in SUPPORTED_EXECUTION_MODES:
-        return normalized_mode
 
-    return "unsupported"
+def find_unsafe_real_safe_actions(commands: List[Dict[str, Any]]) -> List[str]:
+    unsafe_actions = []
+
+    for command in commands:
+        action = command.get("action")
+
+        if action not in PASSIVE_REAL_ACTIONS:
+            unsafe_actions.append(action)
+
+    return unsafe_actions
+
+
+def find_unsafe_first_flight_actions(commands: List[Dict[str, Any]]) -> List[str]:
+    unsafe_actions = []
+
+    for command in commands:
+        action = command.get("action")
+
+        if action not in FIRST_FLIGHT_ACTIONS:
+            unsafe_actions.append(action)
+
+    return unsafe_actions
+
+
+def validate_first_flight_sequence(commands: List[Dict[str, Any]]) -> List[str]:
+    errors = []
+
+    actions = [command.get("action") for command in commands]
+
+    if not actions:
+        errors.append("No command was generated.")
+        return errors
+
+    movement_actions = {
+        "move_up",
+        "move_down",
+        "move_forward",
+        "move_back",
+        "move_left",
+        "move_right",
+    }
+
+    rotation_actions = {
+        "rotate_clockwise",
+        "rotate_counter_clockwise",
+    }
+
+    flight_actions = {
+        "takeoff",
+        "land",
+        *movement_actions,
+        *rotation_actions,
+    }
+
+    has_flight_action = any(action in flight_actions for action in actions)
+
+    if has_flight_action:
+        if "takeoff" not in actions:
+            errors.append("Flight commands must start with takeoff.")
+
+        if "land" not in actions:
+            errors.append("Flight commands must end with land.")
+
+    if "takeoff" in actions and "land" in actions:
+        takeoff_index = actions.index("takeoff")
+        land_index = actions.index("land")
+
+        if land_index < takeoff_index:
+            errors.append("Landing cannot happen before takeoff.")
+
+        for index, action in enumerate(actions):
+            if action in movement_actions or action in rotation_actions:
+                if index < takeoff_index or index > land_index:
+                    errors.append(
+                        f"{action} must happen after takeoff and before land."
+                    )
+
+    for command in commands:
+        action = command.get("action")
+        value = command.get("value")
+
+        if action in movement_actions:
+            if value is None:
+                errors.append(f"{action} requires a distance value.")
+
+            elif value > MAX_FIRST_FLIGHT_DISTANCE_CM:
+                errors.append(
+                    f"{action} is limited to {MAX_FIRST_FLIGHT_DISTANCE_CM} cm "
+                    f"in first flight mode. Requested: {value} cm."
+                )
+
+            elif value <= 0:
+                errors.append(f"{action} distance must be positive.")
+
+        if action in rotation_actions:
+            if value is None:
+                errors.append(f"{action} requires an angle value.")
+
+            elif value > MAX_FIRST_FLIGHT_ROTATION_DEG:
+                errors.append(
+                    f"{action} is limited to {MAX_FIRST_FLIGHT_ROTATION_DEG} degrees "
+                    f"in first flight mode. Requested: {value} degrees."
+                )
+
+            elif value <= 0:
+                errors.append(f"{action} angle must be positive.")
+
+    return errors
 
 
 def run_pipeline(user_command: str, execution_mode: str = "mock") -> Dict[str, Any]:
-    """
-    Run the full core pipeline.
+    execution_mode = normalize_execution_mode(execution_mode)
 
-    Steps:
-    1. Natural language command -> structured JSON commands
-    2. Validate structured commands
-    3. Generate Python DJITelloPy code for educational display
-    4. Execute commands:
-       - mock mode: MockTello
-       - real mode: real DJI Tello through DJITelloPy
-
-    execution_mode:
-        - "mock": safe software simulation
-        - "real": real drone execution, only when PC is connected to Tello Wi-Fi
-    """
-
-    mode = normalize_execution_mode(execution_mode)
-
-    if mode == "unsupported":
+    if execution_mode not in {"mock", "real", "real_safe", "real_first_flight"}:
         return build_error_response(
-            step="execution_mode",
-            user_command=user_command,
             execution_mode=execution_mode,
-            message=f"Unsupported execution mode: {execution_mode}",
+            error=f"Unsupported execution mode: {execution_mode}",
         )
 
-    if not isinstance(user_command, str) or not user_command.strip():
-        return build_error_response(
-            step="input",
-            user_command=user_command,
-            execution_mode=mode,
-            message="Empty or invalid user command.",
-        )
-
-    user_command = user_command.strip()
-
-    # 1. LLM translation
     try:
         llm_output = translate_command(user_command)
 
     except Exception as error:
+        print("LLM API ERROR DETAIL:", repr(error))
+
         return build_error_response(
-            step="translation",
-            user_command=user_command,
-            execution_mode=mode,
-            message=f"Translation step failed: {str(error)}",
+            execution_mode=execution_mode,
+            error=f"LLM translation error: {error}",
         )
 
-    # Stop early if the translator rejected the command.
     if llm_output.get("status") != "accepted":
         return build_error_response(
-            step="translation",
-            user_command=user_command,
-            execution_mode=mode,
-            message=llm_output.get(
-                "rejection_reason",
-                "The command was rejected by the translator.",
+            execution_mode=execution_mode,
+            error=llm_output.get(
+                "explanation",
+                "Command rejected by the LLM translator.",
             ),
             llm_output=llm_output,
         )
 
-    # 2. Validation
     try:
         validation_result = validate_and_report(llm_output)
 
     except Exception as error:
         return build_error_response(
-            step="validation",
-            user_command=user_command,
-            execution_mode=mode,
-            message=f"Validation step failed: {str(error)}",
+            execution_mode=execution_mode,
+            error=f"Validation error: {error}",
             llm_output=llm_output,
         )
 
-    if not validation_result.get("valid", False):
+    if not validation_result.get("valid"):
         return build_error_response(
-            step="validation",
-            user_command=user_command,
-            execution_mode=mode,
-            message="The command sequence failed validation.",
+            execution_mode=execution_mode,
+            error="Command rejected by validator.",
             llm_output=llm_output,
-            validation=validation_result,
+            validation_result=validation_result,
         )
 
     commands = validation_result.get("commands", [])
 
-    # 3. Generate Python code for educational display
+    if execution_mode == "real_safe":
+        unsafe_actions = find_unsafe_real_safe_actions(commands)
+
+        if unsafe_actions:
+            return build_error_response(
+                execution_mode=execution_mode,
+                error=(
+                    "Blocked by real_safe mode. "
+                    f"Unsafe actions are not allowed: {unsafe_actions}"
+                ),
+                llm_output=llm_output,
+                validation_result={
+                    "valid": False,
+                    "errors": [
+                        "real_safe mode only allows passive telemetry commands.",
+                        f"Blocked actions: {unsafe_actions}",
+                    ],
+                    "commands": commands,
+                },
+            )
+
+    if execution_mode == "real_first_flight":
+        unsafe_actions = find_unsafe_first_flight_actions(commands)
+        sequence_errors = validate_first_flight_sequence(commands)
+
+        errors = []
+
+        if unsafe_actions:
+            errors.append(
+                "First flight mode only allows takeoff, land, battery check, "
+                "small movements, and small rotations."
+            )
+            errors.append(f"Blocked actions: {unsafe_actions}")
+
+        errors.extend(sequence_errors)
+
+        if errors:
+            return build_error_response(
+                execution_mode=execution_mode,
+                error="Unsafe command blocked by first flight mode.",
+                llm_output=llm_output,
+                validation_result={
+                    "valid": False,
+                    "errors": errors,
+                    "commands": commands,
+                },
+            )
+
     try:
         generated_code = generate_python_code(commands)
 
     except Exception as error:
         return build_error_response(
-            step="code_generation",
-            user_command=user_command,
-            execution_mode=mode,
-            message=f"Code generation step failed: {str(error)}",
+            execution_mode=execution_mode,
+            error=f"Code generation error: {error}",
             llm_output=llm_output,
-            validation=validation_result,
+            validation_result=validation_result,
         )
 
-    # 4. Execute according to selected mode
     try:
-        if mode == "mock":
+        if execution_mode == "mock":
             execution_result = execute_mock_commands(commands)
 
-        elif mode == "real":
+        elif execution_mode == "real_safe":
             execution_result = execute_commands_with_tello(commands)
+
+        elif execution_mode == "real_first_flight":
+            execution_result = execute_commands_with_tello(commands)
+
+        elif execution_mode == "real":
+            execution_result = execute_commands_with_tello(commands)
+
+        else:
+            return build_error_response(
+                execution_mode=execution_mode,
+                error=f"Unsupported execution mode during execution: {execution_mode}",
+                llm_output=llm_output,
+                validation_result=validation_result,
+                generated_code=generated_code,
+            )
 
     except Exception as error:
         return build_error_response(
-            step="execution",
-            user_command=user_command,
-            execution_mode=mode,
-            message=f"Execution step failed: {str(error)}",
+            execution_mode=execution_mode,
+            error=f"Execution error: {error}",
             llm_output=llm_output,
-            validation=validation_result,
+            validation_result=validation_result,
             generated_code=generated_code,
         )
 
     return {
-        "success": execution_result.get("success", False),
-        "step": "completed" if execution_result.get("success", False) else "execution",
-        "execution_mode": mode,
-        "user_command": user_command,
+        "success": True,
+        "execution_mode": execution_mode,
         "llm_output": llm_output,
         "validation": validation_result,
         "generated_code": generated_code,
         "execution": execution_result,
-        "error": None if execution_result.get("success", False) else "Execution failed.",
+        "error": None,
     }
 
 
 if __name__ == "__main__":
-    user_input = input("Enter a drone command: ")
+    while True:
+        user_input = input("\nEnter a drone command: ")
 
-    print("\nExecution modes:")
-    print("1. mock  -> safe software simulation")
-    print("2. real  -> real DJI Tello execution")
+        if user_input.lower() in {"exit", "quit"}:
+            break
 
-    mode = input("Choose execution mode [mock/real]: ").strip().lower()
-
-    if mode not in {"mock", "real"}:
-        mode = "mock"
-
-    if mode == "real":
-        print("\nWARNING: real mode will send commands to the physical DJI Tello.")
-        print("Use it only when the PC is connected to the Tello Wi-Fi and the area is safe.")
-
-        confirmation = input("Type CONFIRM_REAL to continue: ").strip()
-
-        if confirmation != "CONFIRM_REAL":
-            print("Real execution cancelled. Running in mock mode instead.")
-            mode = "mock"
-
-    result = run_pipeline(user_input, execution_mode=mode)
-
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+        result = run_pipeline(user_input, execution_mode="real_first_flight")
+        print(json.dumps(result, indent=2))
