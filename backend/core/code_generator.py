@@ -1,5 +1,6 @@
 from typing import Dict, Any, List
 from djitellopy import Tello
+from backend.utils.tello_manager import get_tello_manager
 
 
 NO_ARG_TEMPLATES = {
@@ -335,8 +336,21 @@ def build_result_item(action: str, response: Any) -> Dict[str, Any]:
 
 
 def execute_commands_with_tello(commands: List[Dict[str, Any]]) -> Dict[str, Any]:
-    tello = Tello()
-
+    """Execute commands using the singleton TelloManager to prevent port conflicts."""
+    manager = get_tello_manager()
+    
+    # Connect using the singleton manager
+    if not manager.connect():
+        return {
+            "success": False,
+            "results": [],
+            "execution_results": [],
+            "logs": ["Failed to connect to Tello"],
+            "error": "Could not connect to Tello drone. Make sure it's powered on and connected to WiFi.",
+            "final_state": None,
+        }
+    
+    tello = manager.get_tello()
     results = []
     execution_results = []
     logs = []
@@ -344,8 +358,7 @@ def execute_commands_with_tello(commands: List[Dict[str, Any]]) -> Dict[str, Any
 
     try:
         logs.append("connect: starting")
-        tello.connect()
-        logs.append("connect: ok")
+        logs.append("connect: ok (using singleton)")
 
         battery = tello.query_battery()
         logs.append(f"battery: {battery}%")
@@ -411,8 +424,6 @@ def execute_commands_with_tello(commands: List[Dict[str, Any]]) -> Dict[str, Any
         }
 
     finally:
-        try:
-            tello.end()
-            logs.append("end: ok")
-        except Exception:
-            pass
+        # Don't disconnect here - let the API control disconnection
+        # This allows video stream to continue if needed
+        logs.append("Commands executed successfully")
