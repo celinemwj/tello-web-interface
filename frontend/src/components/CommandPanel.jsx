@@ -8,7 +8,11 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -161,6 +165,7 @@ export default function CommandPanel() {
   const [result, setResult] = useState(latestResult);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [executionMode, setExecutionMode] = useState("mock");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -183,7 +188,7 @@ export default function CommandPanel() {
     setIsLoading(true);
 
     try {
-      const apiResult = await executeCommand(cleanedCommand);
+      const apiResult = await executeCommand(cleanedCommand, executionMode);
 
       setResult(apiResult);
       setLatestResult(apiResult);
@@ -314,6 +319,28 @@ export default function CommandPanel() {
                 Mission assistant
               </Typography>
             </Box>
+
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel id="execution-mode-label">Mode</InputLabel>
+              <Select
+                labelId="execution-mode-label"
+                value={executionMode}
+                label="Mode"
+                onChange={(e) => setExecutionMode(e.target.value)}
+                sx={{
+                  borderRadius: 2,
+                  fontWeight: 700,
+                  bgcolor: executionMode === "mock" 
+                    ? "rgba(76, 175, 80, 0.08)" 
+                    : "rgba(244, 67, 54, 0.08)",
+                }}
+              >
+                <MenuItem value="mock">🧪 Mock (Safe)</MenuItem>
+                <MenuItem value="real_first_flight">✈️ Real (First Flight)</MenuItem>
+                <MenuItem value="real_safe">🛡️ Real (Safe)</MenuItem>
+                <MenuItem value="real">⚠️ Real (Direct)</MenuItem>
+              </Select>
+            </FormControl>
 
             <Button
               variant="text"
