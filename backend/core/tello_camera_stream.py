@@ -3,10 +3,12 @@ import time
 
 import cv2
 from djitellopy import Tello
+from backend.utils.tello_manager import get_tello_manager
 
 
 class TelloCameraStream:
     def __init__(self):
+        self.manager = None
         self.tello = None
         self.frame_reader = None
         self.is_streaming = False
@@ -21,8 +23,13 @@ class TelloCameraStream:
             self.last_error = None
 
             try:
-                self.tello = Tello()
-                self.tello.connect()
+                # Use singleton manager to prevent port conflicts
+                self.manager = get_tello_manager()
+                
+                if not self.manager.connect():
+                    raise Exception("Failed to connect to Tello using singleton manager")
+                
+                self.tello = self.manager.get_tello()
                 self.tello.streamon()
 
                 time.sleep(2)
@@ -34,12 +41,8 @@ class TelloCameraStream:
                 self.last_error = str(error)
                 self.is_streaming = False
 
-                try:
-                    if self.tello is not None:
-                        self.tello.end()
-                except Exception:
-                    pass
-
+                # Don't call end() here since we're using singleton
+                self.manager = None
                 self.tello = None
                 self.frame_reader = None
 
@@ -53,11 +56,14 @@ class TelloCameraStream:
                 except Exception:
                     pass
 
+            # Disconnect using the singleton manager
+            if self.manager is not None:
                 try:
-                    self.tello.end()
+                    self.manager.disconnect()
                 except Exception:
                     pass
 
+            self.manager = None
             self.tello = None
             self.frame_reader = None
             self.is_streaming = False
