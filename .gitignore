@@ -1,0 +1,25 @@
+# Virtual environments
+tello-env/
+venv/
+.venv/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Frontend dependencies/build
+node_modules/
+dist/
+build/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

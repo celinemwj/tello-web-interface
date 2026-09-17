@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+djitellopy
+google-genai
+python-dotenv
+opencv-python
+numpy
+av
+pydantic
+
+# Tests
+pytest
