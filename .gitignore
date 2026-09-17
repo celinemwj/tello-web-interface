@@ -1,25 +1,4 @@
-# Virtual environments
-tello-env/
-venv/
-.venv/
-
-# Environment variables and secrets
-.env
-.env.*
-!.env.example
-
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Frontend dependencies/build
-node_modules/
-dist/
-build/
-
-# Editor / OS
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
+```
+# No build artifacts, dependencies, or temporary files detected in changes
+# Only source/config files present (.md, .sh) - no ignores needed
+```
