@@ -14,6 +14,7 @@ app = FastAPI(
 )
 
 
+# CORS: allow_origins=["*"] is for local development only.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
